@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()  # Loads variables from the .env file
-TOKEN = os.getenv("BOT_TOKEN")
-
+TOKEN = '7657686849:AAE6RoHCMOvFJPaSVxe5I_BmkUnIrxgasP0'
 # Maximum allowed file size (in bytes, for example, 50MB)
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
