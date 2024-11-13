@@ -1,3 +1,7 @@
 [build]
-postBuild = "apt-get update && apt-get install -y ffmpeg"
+postBuild = """
+  apt-get update && \
+  apt-get install -y ffmpeg && \
+  ffmpeg -version  # Check if ffmpeg is installed
+"""
 dockerfile = "Dockerfile"
