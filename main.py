@@ -99,7 +99,7 @@ async def handle_video(update: Update, context):
 
     try:
         # Convert video to MP3
-        ffmpeg.input(video_path).output(output_path).run(cmd='C:\\ffmpeg\\bin\\ffmpeg.exe', overwrite_output=True)
+        ffmpeg.input(video_path).output(output_path).run(cmd='ffmpeg', overwrite_output=True)
 
         # Sending MP3 file to user with bot link in the caption
         await converting_message.delete()
