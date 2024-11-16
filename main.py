@@ -2,9 +2,10 @@ import os
 import json
 import ffmpeg
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from dotenv import load_dotenv
+import os
 
 load_dotenv()  # Loads variables from the .env file
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -31,8 +32,6 @@ def save_users():
 user_list = load_users()
 
 ADMIN_USER_ID = None
-PENDING_CONVERSIONS = {}  # Dictionary to track pending video-to-format mappings
-
 
 async def start(update: Update, context):
     global ADMIN_USER_ID
@@ -52,9 +51,9 @@ async def start(update: Update, context):
 
     # Sending welcome message
     await update.message.reply_text(
-        "Welcome! This bot helps you convert videos to MP3 or Telegram audio format. 🎶"
+        "Welcome! This bot helps you convert videos to MP3 format. 🎶"
     )
-    await update.message.reply_text("Send me your video to get started! 🎥➡️🎧")
+    await update.message.reply_text("Now, send me your video to convert to MP3! 🎥➡️🎧")
 
 
 # Command handler for listing users (for admin only)
@@ -75,9 +74,9 @@ async def list_users(update: Update, context):
         await update.message.reply_text("You don't have permission to use this command.")
 
 
-# Handler for receiving video files
+# Handler for receiving video files with progress updates
 async def handle_video(update: Update, context):
-    user_id = update.message.from_user.id
+    # Get file size directly from the video
     video_file = update.message.video
 
     # Checking if the video is too large
@@ -85,56 +84,29 @@ async def handle_video(update: Update, context):
         await update.message.reply_text("The file is too large. Please send a smaller video (max 50 MB). 📏")
         return
 
-    # Save the video details for later processing
-    PENDING_CONVERSIONS[user_id] = video_file
+    # Sending "Converting..." message
+    converting_message = await update.message.reply_text("Converting your video... ⏳")
+    await asyncio.sleep(2)  # Simulate processing time
 
-    # Ask the user to select the desired format
-    keyboard = [
-        [InlineKeyboardButton("MP3", callback_data="mp3"), InlineKeyboardButton("Audio", callback_data="audio")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Choose the format for conversion:", reply_markup=reply_markup)
+    # Updating with "Almost done..." message
+    await converting_message.edit_text("Almost done... 🔄")
+    video_path = f"audio{update.message.message_id}.mp4"
+    output_path = video_path.replace(".mp4", ".mp3")
 
-
-# Handler for processing format selection
-async def handle_format_selection(update: Update, context):
-    query = update.callback_query
-    user_id = query.from_user.id
-
-    await query.answer()
-
-    if user_id not in PENDING_CONVERSIONS:
-        await query.edit_message_text("No pending video found. Please send a video first.")
-        return
-
-    format_choice = query.data
-    video_file = PENDING_CONVERSIONS.pop(user_id)  # Get the pending video file
-
-    video_path = f"audio{query.message.message_id}.mp4"
-    output_path = video_path.replace(".mp4", f".{format_choice}")
-
-    # Downloading the video
-    video_file = await video_file.get_file()
+    # Downloading the video and convert to MP3
+    video_file = await video_file.get_file()  # Download file from Telegram
     await video_file.download_to_drive(video_path)
 
     try:
-        # Convert video to the chosen format
-        if format_choice == "mp3":
-            ffmpeg.input(video_path).output(output_path).run(cmd='ffmpeg', overwrite_output=True)
-            send_function = update.callback_query.message.reply_audio
-        elif format_choice == "audio":
-            ffmpeg.input(video_path).output(output_path, acodec="libopus").run(cmd='ffmpeg', overwrite_output=True)
-            send_function = update.callback_query.message.reply_voice
-        else:
-            await query.edit_message_text("Invalid choice.")
-            return
-
-        # Send the converted file
-        await send_function(
+        # Convert video to MP3
+        ffmpeg.input(video_path).output(output_path).run(cmd='ffmpeg', overwrite_output=True)
+        # Sending MP3 file to user with bot link in the caption
+        await converting_message.delete()
+        await update.message.reply_audio(
             audio=open(output_path, 'rb'),
             caption="Converted by @video_to_mp3_maker_bot"
         )
-        await query.edit_message_text("Conversion completed! 🎉")
+        await update.message.reply_text("Conversion completed! 🎉")
     finally:
         # Clean up temporary files
         os.remove(video_path)
@@ -150,7 +122,6 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("users", list_users))
     app.add_handler(MessageHandler(filters.VIDEO, handle_video))
-    app.add_handler(CallbackQueryHandler(handle_format_selection))
 
     # Start the bot
     app.run_polling()
