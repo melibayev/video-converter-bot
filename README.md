@@ -17,8 +17,8 @@ A Telegram bot that converts video files into MP3 audio or Telegram voice messag
 ## Installation 📦
 1. Clone this repository:
     ```bash
-    git clone https://github.com/melibayev/video-converter-bot.git
-    cd video-converter-bot
+    git clone https://github.com/melibayev/video-to-audio-converter-bot.git
+    cd video-to-audio-converter-bot
     ```
 
 2. Install dependencies:
