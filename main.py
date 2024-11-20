@@ -6,10 +6,14 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from dotenv import load_dotenv
+import pytz
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+# Define the Tashkent timezone
+TASHKENT_TZ = pytz.timezone("Asia/Tashkent")
 
 # Constants for file storage
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -30,11 +34,15 @@ def set_admin(user_id):
             json.dump({"admin_id": user_id}, file)
 
 def log_user_data(user):
+    # Get the current time in the server's timezone and convert it to Tashkent time
+    server_time = datetime.now()
+    tashkent_time = server_time.astimezone(TASHKENT_TZ)
+
     user_data = {
         "user_id": user.id,
         "username": user.username,
         "first_name": user.first_name,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": tashkent_time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
     try:
@@ -143,9 +151,9 @@ async def process_conversion(update: Update, context):
     try:
         ffmpeg.input(video_path).output(output_path, **audio_format).run(cmd="ffmpeg", overwrite_output=True)
         if format_choice == "mp3":
-            await query.message.reply_audio(audio=open(output_path, "rb"), caption="Here's your MP3! 🎧")
+            await query.message.reply_audio(audio=open(output_path, "rb"))
         else:
-            await query.message.reply_voice(voice=open(output_path, "rb"), caption="Here's your Telegram voice message! 🎙️")
+            await query.message.reply_voice(voice=open(output_path, "rb"))
     finally:
         os.remove(video_path)
         os.remove(output_path)
