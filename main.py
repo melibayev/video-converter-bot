@@ -100,8 +100,9 @@ async def list_users(update: Update, context):
             return
 
         # Prepare the user list
-        messages = []
-        current_message = "<b>User List:</b>\n\n"
+        formatted_message = "<b>User List:</b>\n\n"
+        messages = []  # To store message chunks
+
         for user_data in users:
             user_entry = (
                 f"👤 <b>User ID:</b> {user_data['user_id']}\n"
@@ -110,23 +111,23 @@ async def list_users(update: Update, context):
                 f"   <b>Last Active:</b> {user_data['timestamp']}\n\n"
             )
 
-            # Check if adding this entry exceeds the Telegram message limit
-            if len(current_message) + len(user_entry) > 4000:
-                messages.append(current_message)
-                current_message = "<b>User List (continued):</b>\n\n" + user_entry
+            # Check if adding this entry exceeds the Telegram character limit
+            if len(formatted_message) + len(user_entry) > 4096:
+                messages.append(formatted_message)  # Save the current chunk
+                formatted_message = user_entry  # Start a new message chunk
             else:
-                current_message += user_entry
+                formatted_message += user_entry
 
         # Add the last message chunk
-        if current_message:
-            messages.append(current_message)
+        if formatted_message:
+            messages.append(formatted_message)
 
         # Send each message chunk
         for msg in messages:
             await update.message.reply_text(msg, parse_mode="HTML")
 
-        # If the list is too large, fallback to sending as a file
-        if len(messages) > 5:  # Arbitrary threshold to avoid spamming too many chunks
+        # Additionally, save the user list to a file if there are too many messages
+        if len(messages) > 10:  # Arbitrary threshold to offer a file
             output_path = "user_list.txt"
             with open(output_path, "w", encoding="utf-8") as file:
                 for user_data in users:
