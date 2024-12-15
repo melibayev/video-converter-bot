@@ -7,7 +7,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from dotenv import load_dotenv
 import pytz
-import io
 
 # Load environment variables
 load_dotenv()
@@ -100,38 +99,44 @@ async def list_users(update: Update, context):
             await update.message.reply_text("No users have used the bot yet.")
             return
 
-        # Create the user list as text
-        response = "📋 List of users who used the bot:\n\n"
-        for u in users:
-            response += (
-                f"👤 User ID: {u['user_id']}\n"
-                f"   Username: @{u['username'] or 'N/A'}\n"
-                f"   First Name: {u['first_name']}\n"
-                f"   Last Active: {u['timestamp']}\n\n"
+        # Prepare the user list in text format
+        formatted_message = "<b>User List:</b>\n\n"
+        for user_data in users:
+            formatted_message += (
+                f"👤 <b>User ID:</b> {user_data['user_id']}\n"
+                f"   <b>Username:</b> @{user_data['username'] or 'N/A'}\n"
+                f"   <b>First Name:</b> {user_data['first_name']}\n"
+                f"   <b>Last Active:</b> {user_data['timestamp']}\n\n"
             )
 
-        # Check if the response is too long
-        if len(response) > 4000:
-            # Write to an in-memory text file
-            output = io.StringIO()
-            for u in users:
-                output.write(
-                    f"User ID: {u['user_id']}\n"
-                    f"Username: @{u['username'] or 'N/A'}\n"
-                    f"First Name: {u['first_name']}\n"
-                    f"Last Active: {u['timestamp']}\n\n"
-                )
-            output.seek(0)
+        # Check if the message exceeds Telegram's character limit
+        if len(formatted_message) > 4000:
+            # Create a text file to send as a document
+            output_path = "user_list.txt"
+            with open(output_path, "w", encoding="utf-8") as file:
+                for user_data in users:
+                    file.write(
+                        f"User ID: {user_data['user_id']}\n"
+                        f"Username: @{user_data['username'] or 'N/A'}\n"
+                        f"First Name: {user_data['first_name']}\n"
+                        f"Last Active: {user_data['timestamp']}\n\n"
+                    )
 
-            # Send the file as a document
-            await update.message.reply_document(
-                document=output,
+            # Send the document to the admin
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id,
+                document=open(output_path, "rb"),
                 filename="user_list.txt",
                 caption="📋 The user list is too large to display here. Download the file to view it."
             )
+
+            # Clean up the file after sending
+            os.remove(output_path)
         else:
-            # Send the response as a text message
-            await update.message.reply_text(response)
+            # Send the user list as a message
+            await update.message.reply_text(
+                formatted_message, parse_mode="HTML"
+            )
     else:
         await update.message.reply_text("No user log file found. No users have used the bot yet.")
 
