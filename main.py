@@ -7,6 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from dotenv import load_dotenv
 import pytz
+import io
 
 # Load environment variables
 load_dotenv()
@@ -99,6 +100,7 @@ async def list_users(update: Update, context):
             await update.message.reply_text("No users have used the bot yet.")
             return
 
+        # Create the user list as text
         response = "📋 List of users who used the bot:\n\n"
         for u in users:
             response += (
@@ -107,7 +109,29 @@ async def list_users(update: Update, context):
                 f"   First Name: {u['first_name']}\n"
                 f"   Last Active: {u['timestamp']}\n\n"
             )
-        await update.message.reply_text(response)
+
+        # Check if the response is too long
+        if len(response) > 4000:
+            # Write to an in-memory text file
+            output = io.StringIO()
+            for u in users:
+                output.write(
+                    f"User ID: {u['user_id']}\n"
+                    f"Username: @{u['username'] or 'N/A'}\n"
+                    f"First Name: {u['first_name']}\n"
+                    f"Last Active: {u['timestamp']}\n\n"
+                )
+            output.seek(0)
+
+            # Send the file as a document
+            await update.message.reply_document(
+                document=output,
+                filename="user_list.txt",
+                caption="📋 The user list is too large to display here. Download the file to view it."
+            )
+        else:
+            # Send the response as a text message
+            await update.message.reply_text(response)
     else:
         await update.message.reply_text("No user log file found. No users have used the bot yet.")
 
