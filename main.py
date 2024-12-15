@@ -99,19 +99,34 @@ async def list_users(update: Update, context):
             await update.message.reply_text("No users have used the bot yet.")
             return
 
-        # Prepare the user list in text format
-        formatted_message = "<b>User List:</b>\n\n"
+        # Prepare the user list
+        messages = []
+        current_message = "<b>User List:</b>\n\n"
         for user_data in users:
-            formatted_message += (
+            user_entry = (
                 f"👤 <b>User ID:</b> {user_data['user_id']}\n"
                 f"   <b>Username:</b> @{user_data['username'] or 'N/A'}\n"
                 f"   <b>First Name:</b> {user_data['first_name']}\n"
                 f"   <b>Last Active:</b> {user_data['timestamp']}\n\n"
             )
 
-        # Check if the message exceeds Telegram's character limit
-        if len(formatted_message) > 4000:
-            # Create a text file to send as a document
+            # Check if adding this entry exceeds the Telegram message limit
+            if len(current_message) + len(user_entry) > 4000:
+                messages.append(current_message)
+                current_message = "<b>User List (continued):</b>\n\n" + user_entry
+            else:
+                current_message += user_entry
+
+        # Add the last message chunk
+        if current_message:
+            messages.append(current_message)
+
+        # Send each message chunk
+        for msg in messages:
+            await update.message.reply_text(msg, parse_mode="HTML")
+
+        # If the list is too large, fallback to sending as a file
+        if len(messages) > 5:  # Arbitrary threshold to avoid spamming too many chunks
             output_path = "user_list.txt"
             with open(output_path, "w", encoding="utf-8") as file:
                 for user_data in users:
@@ -122,21 +137,14 @@ async def list_users(update: Update, context):
                         f"Last Active: {user_data['timestamp']}\n\n"
                     )
 
-            # Send the document to the admin
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=open(output_path, "rb"),
                 filename="user_list.txt",
                 caption="📋 The user list is too large to display here. Download the file to view it."
             )
-
-            # Clean up the file after sending
             os.remove(output_path)
-        else:
-            # Send the user list as a message
-            await update.message.reply_text(
-                formatted_message, parse_mode="HTML"
-            )
+
     else:
         await update.message.reply_text("No user log file found. No users have used the bot yet.")
 
